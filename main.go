@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"learnGO/models"
-	"learnGO/server"
+	"learnGO/models/server"
+	"learnGO/models/sql"
 )
 
-var SQL models.Export
+var SQL sql.Export
 var SERVER server.Export
 
 func main() {
