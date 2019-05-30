@@ -102,7 +102,6 @@ VALUES ("%s", "%s")`, firstName, password)
 	}
 	var _, e = db.Exec(sqlStatement)
 	if e != nil {
-		fmt.Println("here")
 		var errorString = fmt.Sprintf(`user with login %s already exits`, firstName)
 		return toJSON(Response{Message: "error", Error: errorString})
 	}

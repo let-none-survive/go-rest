@@ -3,7 +3,7 @@ package server
 import (
 	"fmt"
 	"github.com/gorilla/mux"
-	"learnGO/models/sql"
+	"go-rest/models/sql"
 	"net/http"
 )
 
