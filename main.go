@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"learnGO/models/server"
-	"learnGO/models/sql"
+	"go-rest/models/server"
+	"go-rest/models/sql"
 )
 
 var SQL sql.Export

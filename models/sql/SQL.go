@@ -21,6 +21,7 @@ type User struct {
 type Response struct {
 	Message string `json:"message"`
 	Data    Data   `json:"data, omitempty"`
+	Error   string  `json:"error, omitempty"`
 }
 
 type Data struct {
@@ -101,8 +102,9 @@ VALUES ("%s", "%s")`, firstName, password)
 	}
 	var _, e = db.Exec(sqlStatement)
 	if e != nil {
-		fmt.Println(e)
-		return toJSON(Response{Message: "error"})
+		fmt.Println("here")
+		var errorString = fmt.Sprintf(`user with login %s already exits`, firstName)
+		return toJSON(Response{Message: "error", Error: errorString})
 	}
 
 	var newUser = getUserDate(firstName)
