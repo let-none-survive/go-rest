@@ -9,22 +9,19 @@ import (
 	"os"
 )
 
-type Export struct {
-}
+type Export struct{}
 
-type User struct {
-	id        int
-	firstName string
-	password  string
+type Status struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
 }
 
 type Response struct {
-	Message string `json:"message"`
-	Data    Data   `json:"data, omitempty"`
-	Error   string  `json:"error, omitempty"`
+	Data   *User    `json:"data, omitempty"`
+	Status *Status `json:"status, omitempty"`
 }
 
-type Data struct {
+type User struct {
 	ID        int    `json:"id"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"password"`
@@ -53,7 +50,48 @@ func createTable() {
 	fmt.Println("############# database connected #############")
 }
 
-func getUserDate(login string) Response {
+func getAllUsers() []User {
+	var (
+		id        int
+		firstName string
+		password  string
+	)
+	db, err := sql.Open("sqlite3", "./data/test.db")
+	if err != nil {
+		panic(err)
+	}
+	sqlStatement := "SELECT * from users"
+	row, err := db.Query(sqlStatement)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer row.Close()
+	var result []User
+	for row.Next() {
+		errRow := row.Scan(&id, &firstName, &password)
+		if errRow != nil {
+			log.Fatal(errRow)
+		}
+		object := User{
+			ID:        id,
+			FirstName: firstName,
+			LastName:  password,
+		}
+		result = append(result, object)
+	}
+	err = row.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return result
+}
+
+func (export Export) GetAllUsersData() (data []byte) {
+	var result = getAllUsers()
+	return toJSON(result)
+}
+
+func getUserData(login string) Response {
 	var (
 		id        int
 		firstName string
@@ -74,10 +112,12 @@ func getUserDate(login string) Response {
 		if errRow != nil {
 			log.Fatal(errRow)
 		}
-
 		return Response{
-			Message: "success",
-			Data: Data{
+			Status: &Status{
+				Success: true,
+				Message: "success",
+			},
+			Data: &User{
 				ID:        id,
 				FirstName: firstName,
 				LastName:  password,
@@ -88,35 +128,46 @@ func getUserDate(login string) Response {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return Response{}
+	var e = "no such user"
+	return Response{
+		Status: &Status{
+			Success: false,
+			Message: e,
+		},
+	}
 }
 
 func (export Export) InsertData(firstName string, password string) (data []byte) {
-	sqlStatement := fmt.Sprintf(`
-INSERT  INTO users (first_name, password)
-VALUES ("%s", "%s")`, firstName, password)
+	sqlStatement := fmt.Sprintf(`INSERT  INTO users (first_name, password) VALUES ("%s", "%s")`, firstName, password)
+
 	fmt.Println("############# trying to insert data #############")
 	db, err := sql.Open("sqlite3", "./data/test.db")
 	if err != nil {
 		panic(err)
 	}
+
 	var _, e = db.Exec(sqlStatement)
 	if e != nil {
 		var errorString = fmt.Sprintf(`user with login %s already exits`, firstName)
-		return toJSON(Response{Message: "error", Error: errorString})
+		return toJSON(Response{
+			Status: &Status{
+				Success: false,
+				Message: errorString,
+			},
+		})
 	}
 
-	var newUser = getUserDate(firstName)
+	var newUser = getUserData(firstName)
 	return toJSON(newUser)
 }
 
 func (export Export) GetUserData(login string) (data []byte) {
-	var result = getUserDate(login)
+	var result = getUserData(login)
 	return toJSON(result)
 }
 
 func toJSON(object interface{}) (data []byte) {
-	js, err := json.Marshal(object)
+	js, err := json.Marshal(&object)
 	if err != nil {
 		panic(err)
 	}
