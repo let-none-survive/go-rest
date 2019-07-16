@@ -27,7 +27,6 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(result)
 
 	return
-	//var result = SQL.GetUserData(login)
 
 }
 
@@ -39,12 +38,31 @@ func insertHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(result)
 }
 
+func updateHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+	login := r.URL.Query()["login"][0]
+	password := r.URL.Query()["password"][0]
+	result := SQL.UpdateUserData(id, login, password)
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(result)
+}
+
 func (export Export) Serve() {
 	router := mux.NewRouter()
 	router.HandleFunc("/users/{user}", userHandler).Methods("GET")
+	router.HandleFunc("/user/{id}", updateHandler).Methods("PATCH")
 	router.HandleFunc("/user", insertHandler).Methods("POST")
 	http.Handle("/", router)
-
 	fmt.Println("Server is listening... http://localhost:8181")
+	fmt.Println("Routes: ")
+	_ = router.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		t, err := route.GetPathTemplate()
+		if err != nil {
+			return err
+		}
+		fmt.Println(t)
+		return nil
+	})
 	_ = http.ListenAndServe(":8181", nil)
 }
