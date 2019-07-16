@@ -33,7 +33,8 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 func insertHandler(w http.ResponseWriter, r *http.Request) {
 	login := r.URL.Query()["login"][0]
 	password := r.URL.Query()["password"][0]
-	var result = SQL.InsertData(login, password)
+	email := r.URL.Query()["email"][0]
+	var result = SQL.InsertData(login, password, email)
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(result)
 }
@@ -43,7 +44,8 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 	login := r.URL.Query()["login"][0]
 	password := r.URL.Query()["password"][0]
-	result := SQL.UpdateUserData(id, login, password)
+	email := r.URL.Query()["email"][0]
+	result := SQL.UpdateUserData(id, login, password, email)
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(result)
 }
