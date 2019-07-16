@@ -17,3 +17,5 @@
 **GET /users/{user} (username || all)**
 
 **POST /user?login=123&password=asdas**
+
+**PATH /user/{id}?login=123&password=123**
