@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"go-rest/models/sql"
@@ -8,6 +9,17 @@ import (
 )
 
 type Export struct {
+}
+
+type User struct {
+	Password string `json:"password"`
+	Login    string `json:"login"`
+	Auth     string `json:"auth"`
+}
+
+type FullUser struct {
+	User
+	Email string `json:"email"`
 }
 
 var SQL sql.Export
@@ -31,10 +43,17 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func insertHandler(w http.ResponseWriter, r *http.Request) {
-	login := r.URL.Query()["login"][0]
-	password := r.URL.Query()["password"][0]
-	email := r.URL.Query()["email"][0]
-	var result = SQL.InsertData(login, password, email)
+	decoder := json.NewDecoder(r.Body)
+
+	var user FullUser
+	err := decoder.Decode(&user)
+
+	if err != nil {
+		fmt.Println("err")
+		panic(err)
+	}
+	fmt.Println(user)
+	var result = SQL.InsertData(user.Login, user.Password, user.Email)
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(result)
 }
@@ -42,21 +61,41 @@ func insertHandler(w http.ResponseWriter, r *http.Request) {
 func updateHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	login := r.URL.Query()["login"][0]
-	password := r.URL.Query()["password"][0]
-	email := r.URL.Query()["email"][0]
-	result := SQL.UpdateUserData(id, login, password, email)
+	decoder := json.NewDecoder(r.Body)
+
+	var user FullUser
+	err := decoder.Decode(&user)
+
+	if err != nil {
+		panic(err)
+	}
+	result := SQL.UpdateUserData(id, user.Login, user.Password, user.Email, user.Auth)
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(result)
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+
+	var user User
+	err := decoder.Decode(&user)
+
+	if err != nil {
+		panic(err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(SQL.Login(user.Login, user.Password))
 }
 
 func (export Export) Serve() {
 	router := mux.NewRouter()
 	router.HandleFunc("/users/{user}", userHandler).Methods("GET")
 	router.HandleFunc("/user/{id}", updateHandler).Methods("PATCH")
+	router.HandleFunc("/login", loginHandler).Methods("POST")
 	router.HandleFunc("/user", insertHandler).Methods("POST")
 	http.Handle("/", router)
-	fmt.Println("Server is listening... http://localhost:8181")
+	fmt.Println("Server is listening... http://localhost:8181/api/v1")
 	fmt.Println("Routes: ")
 	_ = router.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 		t, err := route.GetPathTemplate()

@@ -20,16 +20,16 @@ type Status struct {
 }
 
 type Response struct {
-	Data   *User   `json:"data, omitempty"`
-	Status *Status `json:"status, omitempty"`
+	Data   *User  `json:"data, omitempty"`
+	Status Status `json:"status, omitempty"`
 }
 
 type User struct {
-	ID        int    `json:"id"`
-	FirstName string `json:"first_name"`
-	Auth      string `json:"auth"`
-	Password  string `json:"password"`
-	Email     string `json:"email"`
+	ID       int    `json:"id"`
+	Login    string `json:"login"`
+	Auth     string `json:"auth"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
 }
 
 func (export Export) ConnectDB() {
@@ -74,11 +74,11 @@ func createTable() {
 
 func getAllUsers() []User {
 	var (
-		id        int
-		firstName string
-		password  string
-		auth      string
-		email     string
+		id       int
+		login    string
+		password string
+		auth     string
+		email    string
 	)
 
 	db, err := sql.Open("sqlite3", "./data/test.db")
@@ -98,16 +98,16 @@ func getAllUsers() []User {
 	var result []User
 
 	for row.Next() {
-		errRow := row.Scan(&id, &firstName, &password, &auth, &email)
+		errRow := row.Scan(&id, &login, &password, &auth, &email)
 		if errRow != nil {
 			log.Fatal(errRow)
 		}
 		object := User{
-			ID:        id,
-			FirstName: firstName,
-			Password:  password,
-			Auth:      auth,
-			Email:     email,
+			ID:       id,
+			Login:    login,
+			Password: password,
+			Auth:     auth,
+			Email:    email,
 		}
 		fmt.Println(object)
 		result = append(result, object)
@@ -127,11 +127,11 @@ func (export Export) GetAllUsersData() (data []byte) {
 
 func getUserData(login string) Response {
 	var (
-		id        int
-		firstName string
-		auth      string
-		password  string
-		email     string
+		id       int
+		_login   string
+		auth     string
+		password string
+		email    string
 	)
 	db, err := sql.Open("sqlite3", "./data/test.db")
 	if err != nil {
@@ -144,45 +144,46 @@ func getUserData(login string) Response {
 	}
 	defer row.Close()
 	for row.Next() {
-		errRow := row.Scan(&id, &firstName, &password, &auth, &email)
+		errRow := row.Scan(&id, &_login, &password, &auth, &email)
 		if errRow != nil {
 			log.Fatal(errRow)
 		}
 		return Response{
-			Status: &Status{
+			Status: Status{
 				Success: true,
 				Message: "success",
 			},
 			Data: &User{
-				ID:        id,
-				FirstName: firstName,
-				Password:  password,
-				Auth:      auth,
-				Email:     email,
+				ID:       id,
+				Login:    _login,
+				Password: password,
+				Auth:     auth,
+				Email:    email,
 			},
 		}
 	}
 	err = row.Err()
 	if err != nil {
+		log.Println("HERE")
 		log.Fatal(err)
 	}
 	var e = "no such user"
 	return Response{
-		Status: &Status{
+		Status: Status{
 			Success: false,
 			Message: e,
 		},
 	}
 }
 
-func (export Export) InsertData(firstName string, password string, email string) (data []byte) {
+func (export Export) InsertData(login string, password string, email string) (data []byte) {
 	auth := String(30)
 	pass := []byte(password)
 	hashedPassword, err := bcrypt.GenerateFromPassword(pass, bcrypt.DefaultCost)
 	if err != nil {
 		panic(err)
 	}
-	sqlStatement := fmt.Sprintf(`INSERT  INTO users (first_name, password, auth, email) VALUES ("%s", "%s", "%s", "%s")`, firstName, hashedPassword, auth, email)
+	sqlStatement := fmt.Sprintf(`INSERT  INTO users (first_name, password, auth, email) VALUES ("%s", "%s", "%s", "%s")`, login, hashedPassword, auth, email)
 	fmt.Println("############# trying to insert data #############")
 	db, err := sql.Open("sqlite3", "./data/test.db")
 	if err != nil {
@@ -192,18 +193,60 @@ func (export Export) InsertData(firstName string, password string, email string)
 	var _, e = db.Exec(sqlStatement)
 	if e != nil {
 		return toJSON(Response{
-			Status: &Status{
+			Status: Status{
 				Success: false,
 				Message: e.Error(),
 			},
 		})
 	}
 
-	return toJSON(getUserData(firstName))
+	return toJSON(getUserData(login))
 }
 
-func updateData(id string, firstName string, password string, email string) Response {
-	auth := String(30)
+func loginHandler(login string, password string) Response {
+	fmt.Println(login)
+	user := getUserData(login)
+	if user.Status.Success == false {
+		return Response{
+			Status: Status{
+				Success: user.Status.Success,
+				Message: user.Status.Message,
+			},
+		}
+	}
+	pass := []byte(password)
+	hashedPassword := []byte(user.Data.Password)
+	err := bcrypt.CompareHashAndPassword(hashedPassword, pass)
+	if err != nil {
+		return Response{
+			Status: Status{
+				Success: false,
+				Message: "incorrect password",
+			},
+		}
+	}
+	//if user.Data.Auth != auth {
+	//	return Response{
+	//		Status: Status{
+	//			Success: false,
+	//			Message: "incorrect auth",
+	//		},
+	//	}
+	//}
+	return user
+}
+
+func updateData(id string, login string, password string, email string, auth string) Response {
+	oldUser := getUserData(login)
+	if oldUser.Data.Auth != auth {
+		return Response{
+			Status: Status{
+				Success: false,
+				Message: "Incorrect auth",
+			},
+		}
+	}
+	newAuth := String(30)
 	pass := []byte(password)
 	hashedPassword, err := bcrypt.GenerateFromPassword(pass, bcrypt.DefaultCost)
 	sqlStatement := `UPDATE users
@@ -212,17 +255,17 @@ func updateData(id string, firstName string, password string, email string) Resp
 	db, err := sql.Open("sqlite3", "./data/test.db")
 	if err != nil {
 		return Response{
-			Status: &Status{
+			Status: Status{
 				Message: err.Error(),
 				Success: false,
 			},
 		}
 	}
 
-	var d, e = db.Exec(sqlStatement, firstName, hashedPassword, email, auth, id)
+	var d, e = db.Exec(sqlStatement, login, hashedPassword, email, newAuth, id)
 	if e != nil {
 		return Response{
-			Status: &Status{
+			Status: Status{
 				Message: e.Error(),
 				Success: false,
 			},
@@ -234,10 +277,10 @@ func updateData(id string, firstName string, password string, email string) Resp
 	}
 
 	if count > 0 {
-		return getUserData(firstName)
+		return getUserData(login)
 	}
 	return Response{
-		Status: &Status{
+		Status: Status{
 			Message: "error",
 			Success: false,
 		},
@@ -249,13 +292,17 @@ func (export Export) GetUserData(login string) (data []byte) {
 	return toJSON(result)
 }
 
-func (export Export) UpdateUserData(id string, firstName string, password string, email string) (data []byte) {
-	var result = updateData(id, firstName, password, email)
+func (export Export) UpdateUserData(id string, login string, password string, email string, auth string) (data []byte) {
+	var result = updateData(id, login, password, email, auth)
 	return toJSON(result)
 }
 
+func (export Export) Login(login string, password string) []byte {
+	return toJSON(loginHandler(login, password))
+}
+
 func toJSON(object interface{}) (data []byte) {
-	js, err := json.Marshal(&object)
+	js, err := json.Marshal(object)
 	if err != nil {
 		panic(err)
 	}
