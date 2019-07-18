@@ -95,7 +95,7 @@ func (export Export) Serve() {
 	router.HandleFunc("/login", loginHandler).Methods("POST")
 	router.HandleFunc("/user", insertHandler).Methods("POST")
 	http.Handle("/", router)
-	fmt.Println("Server is listening... http://localhost:8181/api/v1")
+	fmt.Println("Server is listening... http://localhost:8181")
 	fmt.Println("Routes: ")
 	_ = router.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 		t, err := route.GetPathTemplate()
